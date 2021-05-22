@@ -37,7 +37,7 @@
       - CH1 variable Per Step
       - CH2 Variable Per Step
       - LFO/Sequencer selection
-      - Step Trigger
+      - Step Trigger (for external trigger)
       - Midi Clock
       - Groove
 
@@ -48,6 +48,8 @@
       - CH2 Analog Voltage Per Step
       - LED Per Step
       - Step Trigger Output
+      - Square Wave Clock with 50% Duty Cycle
+      - Pulse Clock Output with adjustable Duty Cycle
       - MDI Clock
       - LED Tempo Heartbeat
       - Clock/Tempo Value
@@ -58,35 +60,31 @@
 
 
 #include <driver/dac.h>
-#include <ledObject.h>
-
-// Specify the Channel Marker LEDs. These are set HIGH when CH number is active
-ledObject leds[8] = {ledObject(13), ledObject(12), ledObject(14), ledObject(27), ledObject(5), ledObject(18), ledObject(19), ledObject(21)};
-
-#define INITIAL_STATE 0
-
-
 
 // DAC Channel 1 (GPIO 25)
 // DAC Channel 2 (GPIO 26)
+
+// LED Interface (For user interaction & UI)
+
+#include "led_interface.h"
+
 
 
 // Using Interrupts & ISR for timing purposes.
 
 #include "interrupt_timing.h"
 
- //   - Advantages, faster more accurate timings than autoDelay()
+// Timing Functions & Methods
 
- // Method Found @ https://techtutorialsx.com/2017/10/07/esp32-arduino-timer-interrupts/
+#include "timing_maths.h"
 
-volatile int16_t interruptCounter;    // Used by ISR & Main loop to track number of ISRs triggered (more accurate than using bool, as multiple triggers can be accounted for)
 
-int16_t totalInterrptCounter;        // Total number of interrupts triggered in run time
+// Step Sequencer Methods
 
-hw_timer_t * timer = NULL;     // variable of type hw_timer_t. Used to configure timer
+#include "step_sequencer.h"
 
-portMUX_TYPE timerMux = partMUX_INITIALIZER_UNLOCKED;   // Used for syncronisation of shared variable between main loop & ISR
 
+uint16_t bpm = 290;
 
 
 
@@ -94,32 +92,29 @@ void setup() {
 
   Serial.begin(115200);
 
-  for (int i = 0; i < 8; i++) {
-    leds[i].begin(INITIAL_STATE);
-  }
-  for (int i = 0; i < 8; i++) {
-    leds[i].turnOn();                                     //
-    delay(200);
-  }
-  delay(1000);
+  randomSeed(34);
 
-  for (int i = 0; i < 8; i++) {
-    leds[i].turnOff();                                     //
-    delay(40);
-  }
+  ledStartup();
+
+
 
 
   dac_output_enable(DAC_CHANNEL_1);
   //dac_output_enable(DAC_CHANNEL_2);
-
   dac_output_voltage(DAC_CHANNEL_1, 0);  // Write analogue value to the LED
 
+  uint32_t master_clock_delay = bpm_to_delay(bpm);
+
+  timerSetup(master_clock_delay);
 }
 
 
 byte current_step = 0;
 
-uint16_t bpm = 120;
+byte tick = 0;            // Counts each half beat (each interrupt tick)
+byte beat = 0;              // Counts each beat (1 to 8)
+
+
 
 
 
@@ -127,7 +122,31 @@ void loop() {
 
 
 
+  if (interruptCheck()) {
+    clockLED.hardToggle();      // LED will flash on every half beat, making a 50% clock pulse on every beat
+    tick++;
+
+    if (tick == 1) {
+      Serial.printf(" & ");
+    }
+    if (tick >= 2) {
+      step_sequencer(beat);
+      sequencerLED(beat);
+      beat++;
+      tick = 0;
+      Serial.printf("\nBeat: [%i]\n", beat);
+    }
+
+    if (beat >= 8) {
+      beat = 0;
+     // randomise_sequence(0, 40);
+    }
+
+  }
+
+
 }
+
 
 
 void sawtooth(long stepDelay, byte lfoMin, byte lfoMax) {
