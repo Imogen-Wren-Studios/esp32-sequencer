@@ -68,7 +68,7 @@ void IRAM_ATTR onTimer() {
 */
 
 
-void timerSetup(uint32_t timer_delay = 250000) {
+void timerSetup(uint32_t timer_delay = 125000) {
 
   // Begin the timer
 

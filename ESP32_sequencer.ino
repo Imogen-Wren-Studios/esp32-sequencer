@@ -84,8 +84,16 @@
 #include "step_sequencer.h"
 
 
-uint16_t bpm = 290;
+uint16_t bpm = 140;
 
+uint32_t duty_high;   // variable to hold the HIGH time for the variable duty cycle output
+bool pulse_triggered = false;
+uint32_t pulse_start_t;           // time pulse was triggered in micros
+
+float DUTY_CYCLE = 0.1;
+
+bool PEDAL_TONE = true;     // Pedal tone effectivily doubles the number of steps in the sequence, by treating the offbeat as a pedal tone, 
+byte PEDAL_VALUE = 0;       // pedal tone value
 
 
 void setup() {
@@ -106,6 +114,7 @@ void setup() {
   uint32_t master_clock_delay = bpm_to_delay(bpm);
 
   timerSetup(master_clock_delay);
+  duty_high = duty_cycle_high(master_clock_delay, DUTY_CYCLE);
 }
 
 
@@ -123,15 +132,21 @@ void loop() {
 
 
   if (interruptCheck()) {
-    clockLED.hardToggle();      // LED will flash on every half beat, making a 50% clock pulse on every beat
+   
     tick++;
 
     if (tick == 1) {
+      clockLED.turnOff();      // LED will flash on every half beat, making a 50% clock pulse on every beat
+      if (PEDAL_TONE){
+        pedalTone(PEDAL_VALUE);
+      }
       Serial.printf(" & ");
     }
     if (tick >= 2) {
       step_sequencer(beat);
       sequencerLED(beat);
+      pulse_start_t = pulse_trigger();
+      clockLED.turnOn(); 
       beat++;
       tick = 0;
       Serial.printf("\nBeat: [%i]\n", beat);
@@ -139,15 +154,32 @@ void loop() {
 
     if (beat >= 8) {
       beat = 0;
-     // randomise_sequence(0, 40);
+      // randomise_sequence(0, 40);
     }
 
   }
 
-
+  pulse_end(duty_high, pulse_start_t);
 }
 
 
+// First funtion is triggered by the interrupt to start the HIGH pulse output
+uint32_t pulse_trigger() {
+  pulse_triggered = true;
+  pulseLED.turnOn();
+  uint32_t  pulse_start = micros();
+  return pulse_start;
+}
+
+//2nd function always runs in loop and makes pulse LOW at the time after defined by the duty cycle.
+void pulse_end(uint32_t pulse_high_time, uint32_t pulse_start_time) {
+  if (pulse_triggered) {
+    if (micros() - pulse_start_time >= pulse_high_time) {
+      pulseLED.turnOff();
+      pulse_triggered = false;
+    }
+  }
+}
 
 void sawtooth(long stepDelay, byte lfoMin, byte lfoMax) {
 
