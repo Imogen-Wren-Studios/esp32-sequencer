@@ -14,7 +14,7 @@
 ledObject leds[8] = {ledObject(13), ledObject(12), ledObject(14), ledObject(27), ledObject(5), ledObject(18), ledObject(19), ledObject(21)};
 
 ledObject clockLED(23);
-ledObject pulseLED(2);
+ledObject pulseLED(15);
 
 #define INITIAL_STATE 0
 

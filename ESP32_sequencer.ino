@@ -64,6 +64,12 @@
 // DAC Channel 1 (GPIO 25)
 // DAC Channel 2 (GPIO 26)
 
+
+// Global Include
+
+#include "globals.h"
+
+
 // LED Interface (For user interaction & UI)
 
 #include "led_interface.h"
@@ -84,16 +90,19 @@
 #include "step_sequencer.h"
 
 
-uint16_t bpm = 140;
+// Seven Segment Display
 
-uint32_t duty_high;   // variable to hold the HIGH time for the variable duty cycle output
-bool pulse_triggered = false;
-uint32_t pulse_start_t;           // time pulse was triggered in micros
+#include "seven_segment.h"
 
-float DUTY_CYCLE = 0.1;
+// Rotary Encoder
 
-bool PEDAL_TONE = true;     // Pedal tone effectivily doubles the number of steps in the sequence, by treating the offbeat as a pedal tone, 
-byte PEDAL_VALUE = 0;       // pedal tone value
+
+
+#include "rotary_encoder.h"
+
+
+
+
 
 
 void setup() {
@@ -104,24 +113,22 @@ void setup() {
 
   ledStartup();
 
-
-
+  seven_seg_setup(true);
 
   dac_output_enable(DAC_CHANNEL_1);
   //dac_output_enable(DAC_CHANNEL_2);
   dac_output_voltage(DAC_CHANNEL_1, 0);  // Write analogue value to the LED
 
-  uint32_t master_clock_delay = bpm_to_delay(bpm);
+  update_clock_tempo(bpm);
 
-  timerSetup(master_clock_delay);
-  duty_high = duty_cycle_high(master_clock_delay, DUTY_CYCLE);
+
+  rotary_encoder_start();
+
 }
 
 
-byte current_step = 0;
 
-byte tick = 0;            // Counts each half beat (each interrupt tick)
-byte beat = 0;              // Counts each beat (1 to 8)
+
 
 
 
@@ -132,12 +139,10 @@ void loop() {
 
 
   if (interruptCheck()) {
-   
     tick++;
-
     if (tick == 1) {
       clockLED.turnOff();      // LED will flash on every half beat, making a 50% clock pulse on every beat
-      if (PEDAL_TONE){
+      if (PEDAL_TONE) {
         pedalTone(PEDAL_VALUE);
       }
       Serial.printf(" & ");
@@ -146,19 +151,20 @@ void loop() {
       step_sequencer(beat);
       sequencerLED(beat);
       pulse_start_t = pulse_trigger();
-      clockLED.turnOn(); 
+      clockLED.turnOn();
       beat++;
       tick = 0;
       Serial.printf("\nBeat: [%i]\n", beat);
     }
-
     if (beat >= 8) {
       beat = 0;
       // randomise_sequence(0, 40);
     }
-
   }
 
+  encoderOne.encodeDirection();
+  adjust_tempo(0);
+  seven_seg_loop(bpm);
   pulse_end(duty_high, pulse_start_t);
 }
 

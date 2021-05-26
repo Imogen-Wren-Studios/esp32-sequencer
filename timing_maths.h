@@ -15,6 +15,8 @@
 
 
 
+
+
 uint32_t bpm_to_delay(uint16_t bpm) {   // Output is delay value for an entire beat. This needs to be halved to use with our tick system (50% duty), or subdivided to account for other duty cycles
 
   // BPM / 60 = Beats per second (Hz)
@@ -26,18 +28,18 @@ uint32_t bpm_to_delay(uint16_t bpm) {   // Output is delay value for an entire b
   //
 
 
-  Serial.printf("\n\nBPM: [%i]\n", bpm);
+//  Serial.printf("\n\nBPM: [%i]\n", bpm);
 
   float hz = bpm / 60.0;
 
   char buffer[16];
   dtostrf(hz, 3, 6, buffer);
 
-  Serial.printf("hz: [%s]\n", buffer);
+//  Serial.printf("hz: [%s]\n", buffer);
 
   uint32_t delay_per_tick = 250000 / hz;
 
-  Serial.printf("delay_per_tick: [%i]\n\n", delay_per_tick);
+//  Serial.printf("delay_per_tick: [%i]\n\n", delay_per_tick);
 
   return delay_per_tick;
 
@@ -73,15 +75,25 @@ uint32_t duty_cycle_high(uint32_t lambda, float duty_cycle) {    //
 
   lambda = lambda * 2;
 
-  uint32_t time_high = lambda * duty_cycle ;    
+  uint32_t time_high = lambda * duty_cycle ;
   uint32_t time_low = lambda - time_high;
 
-   char buffer[16];
+  char buffer[16];
   dtostrf(duty_cycle, 3, 6, buffer);
 
-  Serial.printf("\nDuty Cycle: [%s], Time High: [%i], Time Low: [%i]   \n", buffer, time_high, time_low);
+ // Serial.printf("\nDuty Cycle: [%s], Time High: [%i], Time Low: [%i]   \n", buffer, time_high, time_low);
 
 
   return time_high;
 
+}
+
+
+
+// Function ties together all previously written functions to take in a BPM value, set all interrupt timers and set duty cycles
+
+void update_clock_tempo(uint16_t tempo) {
+  uint32_t master_clock_delay = bpm_to_delay(tempo);
+  timerSetup(master_clock_delay);
+  duty_high = duty_cycle_high(master_clock_delay, DUTY_CYCLE);
 }
