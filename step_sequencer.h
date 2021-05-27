@@ -7,7 +7,7 @@
 
 
 
-byte stepSequenceA[8] = {100, 200, 230, 255, 90, 150 , 200, 255};      // Test values for the step sequencer
+byte stepSequenceA[8] = {255, 255, 0, 0, 0, 150 , 200, 255};      // Test values for the step sequencer
 
 
 
